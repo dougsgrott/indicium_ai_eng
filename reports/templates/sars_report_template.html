@@ -1,0 +1,39 @@
+<body>
+    <h1>SARS Outbreak Status Report - {{ current_date }}</h1>
+    <p><strong>Prepared by:</strong> Indicium HealthCare Agent</p>
+    
+    <h2>Key Statistical Metrics</h2>
+    <div class="metric">
+        <p><strong>Rate of Increase in Cases (Last 7 Days):</strong> 
+            {{ metrics.rate_of_increase | default('N/A') }}</p> 
+        <p><strong>Mortality Rate:</strong> 
+            {{ metrics.mortality_rate }}</p>
+        <p><strong>ICU Occupancy Rate (Among Cases):</strong> 
+            {{ metrics.icu_occupancy }}</p>
+        <p><strong>Vaccination Rate (Among Cases):</strong> 
+            {{ metrics.vaccination_rate }}</p>
+    </div>
+
+    <h2>Scenario Context & Commentary</h2>
+    <p>The agent has retrieved {{ news | length }} relevant news snippets below. A synthesized summary of the current scenario based on the data and news is needed from the agent.</p>
+    
+    <h3>Supporting News Snippets:</h3>
+    <ul>
+        {% for source in news %}
+        <li>{{ source }}</li>
+        {% endfor %}
+    </ul>
+
+    <div class="chart-container">
+        <h2>Case Trend Visualizations</h2>
+        <p>Daily Case Count (Last 30 Days):</p>
+        <img src="file:///{{ charts[0] }}" alt="Daily Cases Chart">
+    </div>
+    
+    <div class="chart-container">
+        <p>Monthly Case Count (Last 12 Months):</p>
+        <img src="file:///{{ charts[1] }}" alt="Monthly Cases Chart">
+    </div>
+
+</body>
+</html>

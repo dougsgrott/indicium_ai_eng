@@ -1,0 +1,39 @@
+[project]
+name = "genai-studies"
+version = "0.1.0"
+description = "Description."
+readme = "README.md"
+requires-python = ">=3.12"
+classifiers = [
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+dependencies = [
+    "ipykernel>=7.1.0",
+    "jupyter>=1.1.1",
+    "notebook>=7.4.7",
+    "pandas>=2.3.3",
+    "pydantic>=2.12.3",
+    "pydantic-settings>=2.11.0",
+    "langchain==0.3.26",
+    "openai>=2.6.1",
+    "langchain_openai",
+    "crewai",
+    "fastmcp>=2.10.5",
+    "langgraph>=0.4.10",
+    "langchain_mcp_adapters",
+    "pydantic_ai",
+    "pytest",
+    "deepeval",
+    "ragas",
+    "pypdf",
+    "faiss-cpu",
+    "rank_bm25",
+    "langchain_huggingface",
+    "youtube-transcript-api",
+    "pytube",
+    "unstructured",
+    "unstructured[pdf]",
+    "plotly",
+    "duckduckgo-search",
+]
