@@ -8,8 +8,7 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 from functools import wraps
 import pandas as pd
 import datetime
-from typing import Dict, Any, Union, List
-from pathlib import Path
+from typing import Dict, Any
 
 logger = logging.getLogger(__name__)
 
@@ -19,8 +18,10 @@ def setup_report_tool(template_dir: str, output_dir: str):
     """Initializes the ReportGenerator and returns the decorated tool function."""
     
     try:
-        # 1. Initialize Jinja Environment (Security Note: autoescape is good practice)
-        file_loader = FileSystemLoader(template_dir)
+        # Use absolute path for template directory to avoid relative path errors
+        abs_template_dir = os.path.abspath(template_dir)
+        file_loader = FileSystemLoader(abs_template_dir)
+        
         env = Environment(
             loader=file_loader,
             autoescape=select_autoescape(['html', 'xml'])
@@ -31,18 +32,16 @@ def setup_report_tool(template_dir: str, output_dir: str):
 
     class ReportGenerator:
         def __init__(self, output_dir: str):
-            self.output_dir = output_dir
+            # Force absolute path for determinism
+            self.output_dir = os.path.abspath(output_dir)
             os.makedirs(self.output_dir, exist_ok=True)
+            print(f"[Report Tool] Initialized. Reports will be saved to: {self.output_dir}")
 
         def _render_html(self, data: Dict[str, Any]) -> str:
             """Loads Jinja template and renders it with the collected data."""
             try:
                 template = env.get_template('sars_report_template.html')
-                
-                # Add current date to the data dictionary
                 data['current_date'] = datetime.date.today().strftime("%Y-%m-%d")
-                
-                # Render the template using the unpacked dictionary
                 html_output = template.render(**data)
                 return html_output
             except Exception as e:
@@ -51,57 +50,78 @@ def setup_report_tool(template_dir: str, output_dir: str):
 
         def generate_final_report(self, report_data_json: str) -> str:
             """
-            Generates the final, structured report by combining all preceding data.
+            Generates the final, structured report by combining metrics, news, and HTML plots.
             """
+            import json # Local import for json usage
+            
+            print(f"[Report Tool] Processing request... (Input size: {len(report_data_json)} chars)")
+
             try:
-                # 1. Parse Input & Sanitize
+                # --- STEP 1: PARSE INPUT (CRITICAL EXTERNAL I/O) ---
                 safe_json_string = report_data_json.replace('\\', '/')
-                data = json.loads(safe_json_string)
+                data_dict = json.loads(safe_json_string) 
+            except json.JSONDecodeError as e:
+                error_msg = f"Report generation failed: JSON Decoding Error. Input malformed. Error: {e}"
+                logger.exception(error_msg)
+                print(f"[Report Tool] ERROR: {error_msg}")
+                data_dict = json.loads(report_data_json)
+                # return error_msg
+            except Exception as e:
+                error_msg = f"Report generation failed: Unexpected error during JSON parsing. Error: {e}"
+                logger.exception(error_msg)
+                return error_msg
 
-                # 2. 🎯 CRITICAL FIX: STRUCTURE REPAIR AND DEFAULTING
+            # --- STEP 2: STRUCTURE NORMALIZATION (Internal Logic - No Try/Except Needed) ---
+            
+            # Safely retrieve nested components, defaulting to empty structures
+            commentary_data = data_dict.get('commentary', {})
+            top_level_news = data_dict.get('news', [])
+            
+            final_data = {
+                # Metrics: Safely retrieve metrics or default to empty dict
+                'metrics': data_dict.get('metrics', {}),
                 
-                # Define keys that are flat in the AI's output but belong in 'metrics':
-                flat_metric_keys = ['mortality_rate', 'rate_of_increase', 'icu_occupancy', 'vaccination_rate', 'cases_last_week', 'cases_this_week']
-
-                # Initialize the structured final data
-                final_data = {}
-                
-                # --- A. Consolidate Metrics ---
-                metrics_data = data.pop('metrics', {}) # Use existing 'metrics' if present
-                for key in flat_metric_keys:
-                    # Pull flat keys from the root data dictionary into 'metrics_data'
-                    metrics_data[key] = data.pop(key, metrics_data.get(key, 'N/A'))
-                final_data['metrics'] = metrics_data
-                
-                # --- B. Consolidate News/Commentary ---
-                news_data = data.pop('news', [])
-                commentary_data = data.pop('commentary', {})
-                
-                final_data['news'] = news_data
-                final_data['commentary'] = {
-                    # Provide a robust default summary if the AI skipped synthesis
+                # Commentary: Build the mandatory top-level structure for Jinja
+                'commentary': {
                     'summary': commentary_data.get('summary', 'The agent did not provide a synthesis. See snippets below.'),
-                    'news_sources': news_data # Can reuse the news data here if template needs it
-                }
+                    # Combine news sources from potential locations (top level or nested)
+                    'news_sources': top_level_news or commentary_data.get('news_sources', [])
+                },
                 
-                # --- C. Consolidate Charts ---
-                final_data['charts'] = data.pop('charts', [])
-                
-                # 3. Render HTML
-                html_content = self._render_html(final_data)
-                
-                # 4. Generate Filename and Save
+                # Charts & Date
+                'charts': data_dict.get('charts', {}),
+                'current_date': datetime.date.today().strftime("%Y-%m-%d")
+            }
+
+            # --- STEP 3: RENDER HTML (CRITICAL EXTERNAL OPERATION) ---
+            try:
+                html_content = self._render_html(final_data) 
+            except Exception as e:
+                error_msg = f"Report generation failed: Jinja Rendering Error. Error: {e}"
+                logger.exception(error_msg)
+                print(f"[Report Tool] ERROR: {error_msg}")
+                return error_msg
+
+            # --- STEP 4: GENERATE FILENAME AND SAVE (CRITICAL EXTERNAL I/O) ---
+            try:
                 timestamp = pd.Timestamp.now().strftime("%Y%m%d_%H%M%S")
-                html_path = os.path.join(self.output_dir, f"SARS_Report_{timestamp}.html")
-                with open(html_path, 'w', encoding='utf-8') as f:
-                     f.write(html_content)
+                filename = f"SARS_Report_{timestamp}.html"
+                html_path = os.path.join(self.output_dir, filename)
                 
-                logger.info(f"Final Report successfully generated as HTML: {html_path}")
-                return f"Success: Report generated and saved to {html_path}. (Ready for PDF conversion)"
+                with open(html_path, 'w', encoding='utf-8') as f:
+                    f.write(html_content)
+                
+                # Success message returned to the agent
+                msg = f"Report successfully saved to: {html_path}"
+                print(f"[Report Tool] {msg}")
+                logger.info(msg)
+                return msg
 
             except Exception as e:
-                logger.exception("Critical error during final report generation.")
-                return f"Report generation failed: {e}"
+                error_msg = f"Report generation failed: File Save Error. Error: {e}"
+                logger.exception(error_msg)
+                print(f"[Report Tool] ERROR: {error_msg}")
+                return error_msg
 
     # --- Tool Construction ---
     generator = ReportGenerator(output_dir)
@@ -110,21 +130,35 @@ def setup_report_tool(template_dir: str, output_dir: str):
     @tool
     def generate_final_report(report_data_json: str) -> str:
         """
-        Generates the final, structured PDF report by combining all preceding data
-        (metrics, news, and chart file paths) received as a JSON string.
+        MANDATORY: Use this tool to SAVE the final HTML report to the disk.
         
-        The input `report_data_json` MUST contain metrics, charts (optional list of paths), 
-        and news/commentary (optional). Example keys: mortality_rate, charts, news.
+        DO NOT output the report HTML directly in the chat.
+        DO NOT finish the task without calling this tool.
+
+        Identity: You are the final report synthesizer.
+        Input: You have the raw metrics (in one state key), news snippets (in another), and chart HTML content (in another)
+        
+        Input: A valid JSON string containing:
+        {
+            "metrics": { ... },
+            "news": [ ... ],
+            "charts": {
+                "daily_30d_html": "<div id='...'> [REAL PLOT HTML from to_html()] </div>",
+                "monthly_12m_html": "<div id='...'> [REAL PLOT HTML from to_html()] </div>"
+            }
+        }
         """
+
         return generator.generate_final_report(report_data_json)
     
     return generate_final_report
-
 
 # ----------------------------------------------------------------------
 # 🎯 DEBUGGING BLOCK: Test tool with metric data only.
 # ----------------------------------------------------------------------
 if __name__ == "__main__":
+    from pathlib import Path
+
     # 1. Setup Logging and Configuration
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
     

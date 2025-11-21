@@ -138,3 +138,6 @@ rag-from-scratch-main
 reports/generated_reports
 sandbox
 static
+
+uv.lock
+*.db

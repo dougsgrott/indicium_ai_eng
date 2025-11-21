@@ -3,10 +3,8 @@
 import os
 import sqlite3
 import pandas as pd
-import matplotlib.pyplot as plt
-import matplotlib
-matplotlib.use('Agg')
 import logging
+import plotly.express as px
 from langchain_core.tools import tool
 from datetime import timedelta
 from functools import wraps
@@ -30,9 +28,11 @@ def setup_visualization_tool(db_uri: str, img_dir: str):
             self.db_uri = db_uri
             self.img_dir = img_dir
 
-        def _get_data_for_plot(self, time_period: str) -> pd.Series | None:
-            """Internal helper to query the DB and prepare time-series data."""
-            # ... (Implementation of _get_data_for_plot remains the same) ...
+        def _get_data_for_plot(self, time_period: str) -> pd.DataFrame | None:
+            """
+            Internal helper to query the DB and prepare time-series data.
+            Returns data as a DataFrame ready for Plotly.
+            """
             try:
                 with sqlite3.connect(self.db_uri) as conn:
                     query = "SELECT DT_NOTIFIC FROM srag_records"
@@ -43,21 +43,35 @@ def setup_visualization_tool(db_uri: str, img_dir: str):
 
                 if df.empty:
                     logger.warning("Database query returned no valid date data.")
-                    return pd.Series(dtype='int64')
+                    return pd.DataFrame()
 
                 max_date = df['DT_NOTIFIC'].max()
                 
+                # --- Time Series Aggregation ---
                 if time_period == 'daily_30d':
                     start_date = max_date - timedelta(days=30)
                     filtered = df[df['DT_NOTIFIC'] >= start_date]
                     counts = filtered.groupby('DT_NOTIFIC').size()
-                    return counts.reindex(pd.date_range(start_date, max_date, freq='D'), fill_value=0)
+                    
+                    # Create a complete date range and fill missing days with 0
+                    full_range = pd.date_range(start_date, max_date, freq='D')
+                    counts = counts.reindex(full_range, fill_value=0)
+                    
+                    # Convert to DataFrame for Plotly
+                    plot_df = counts.rename('Cases').to_frame().reset_index()
+                    plot_df.columns = ['Date', 'Cases']
+                    return plot_df
                     
                 elif time_period == 'monthly_12m':
                     start_date = max_date - timedelta(days=365)
                     filtered = df[df['DT_NOTIFIC'] >= start_date]
-                    counts = filtered.groupby(pd.Grouper(key='DT_NOTIFIC', freq='M')).size()
-                    return counts
+                    
+                    # Group by Month start (freq='MS')
+                    counts = filtered.groupby(pd.Grouper(key='DT_NOTIFIC', freq='MS')).size()
+                    
+                    plot_df = counts.rename('Cases').to_frame().reset_index()
+                    plot_df.columns = ['Date', 'Cases']
+                    return plot_df
                 else:
                     raise ValueError(f"Invalid time period: {time_period}")
 
@@ -68,20 +82,20 @@ def setup_visualization_tool(db_uri: str, img_dir: str):
                 logger.error(f"General error in _get_data_for_plot: {e}")
                 return None
 
-        # 1. REMOVE @tool HERE! This is now a regular instance method.
+        # 1. Plotly-based Chart Generation
         def generate_sars_charts(self, chart_type: str) -> str:
             """
-            Generates required visualization charts and saves them as image files.
+            Generates required visualization charts and saves them as interactive HTML files.
             
             Input `chart_type` must be one of the following:
             - 'daily_30d': For the daily case count over the last 30 days.
             - 'monthly_12m': For the monthly case count over the last 12 months.
             
-            Returns the file path of the generated chart.
+            Returns the file path of the generated HTML chart.
             """
             chart_config = {
-                'daily_30d': {'title': 'Daily SARS Cases (Last 30 Days)', 'plot_type': 'bar', 'color': '#2E86C1'},
-                'monthly_12m': {'title': 'Monthly SARS Cases (Last 12 Months)', 'plot_type': 'line', 'color': '#C0392B'},
+                'daily_30d': {'title': 'Daily SARS Cases (Last 30 Days)', 'type': 'bar', 'color': '#2E86C1'},
+                'monthly_12m': {'title': 'Monthly SARS Cases (Last 12 Months)', 'type': 'line', 'color': '#C0392B'},
             }
             
             if chart_type not in chart_config:
@@ -89,35 +103,33 @@ def setup_visualization_tool(db_uri: str, img_dir: str):
                 return f"Error: Invalid chart_type '{chart_type}'. Must be 'daily_30d' or 'monthly_12m'."
             
             config = chart_config[chart_type]
-            data_series = self._get_data_for_plot(chart_type)
+            data_df = self._get_data_for_plot(chart_type)
 
-            if data_series is None or data_series.empty:
+            if data_df.empty:
                 logger.error(f"Chart generation failed: No data for {config['title']}.")
                 return f"Could not generate chart. Data is missing or failed to load for {config['title']}."
 
             try:
-                # Plotting Logic (remains the same)
-                plt.figure(figsize=(10, 6))
-                
-                if config['plot_type'] == 'bar':
-                    data_series.plot(kind='bar', color=config['color'])
-                    plt.xticks(rotation=45, ha='right', fontsize=8)
-                elif config['plot_type'] == 'line':
-                    data_series.plot(kind='line', marker='o', color=config['color'], linewidth=2)
-                    plt.gca().xaxis.set_major_formatter(plt.matplotlib.dates.DateFormatter('%Y-%m'))
-                    plt.xticks(rotation=45, ha='right')
+                # --- Plotly Visualization Logic ---
+                if config['type'] == 'bar':
+                    fig = px.bar(data_df, x='Date', y='Cases', 
+                                 title=config['title'],
+                                 color_discrete_sequence=[config['color']])
+                elif config['type'] == 'line':
+                    fig = px.line(data_df, x='Date', y='Cases', 
+                                  title=config['title'],
+                                  markers=True,
+                                  color_discrete_sequence=[config['color']])
 
-                plt.title(config['title'], fontsize=14, weight='bold')
-                plt.xlabel('Date / Month', fontsize=12)
-                plt.ylabel('Case Count', fontsize=12)
-                plt.grid(True, linestyle='--', alpha=0.7)
-                plt.tight_layout()
+                fig.update_layout(title_font_size=18, 
+                                  xaxis_title='Date / Month',
+                                  yaxis_title='Case Count')
                 
-                filename = os.path.join(self.img_dir, f"{chart_type}.png")
-                plt.savefig(filename)
-                plt.close()
+                # Save as interactive HTML file
+                filename = os.path.join(self.img_dir, f"{chart_type}.html")
+                fig.write_html(filename, auto_open=False, full_html=False)
                 
-                logger.info(f"Chart successfully saved to {filename}")
+                logger.info(f"Chart successfully saved as HTML: {filename}")
                 return f"Success: Chart saved to {filename}"
             
             except Exception as e:
@@ -125,28 +137,24 @@ def setup_visualization_tool(db_uri: str, img_dir: str):
                 return f"Critical error during plotting: {e}"
 
     # --- Tool Construction ---
-    # 2. Instantiate the generator class
     generator = SarsChartGenerator(db_uri, img_dir)
 
-    # 3. Create the external, decorated function
-    # @wraps ensures the resulting function retains the docstring/metadata from generator.generate_sars_charts
     @wraps(generator.generate_sars_charts)
     @tool
     def generate_sars_charts(chart_type: str) -> str:
         """
-        Generates required visualization charts and saves them as image files.
+        Generates required visualization charts and saves them as interactive HTML files.
         
         Input `chart_type` must be one of the following:
         - 'daily_30d': For the daily case count over the last 30 days.
         - 'monthly_12m': For the monthly case count over the last 12 months.
         
-        Returns the file path of the generated chart.
+        Returns the file path of the generated HTML chart.
         """
-        # Call the bound method on the instantiated generator object
         return generator.generate_sars_charts(chart_type)
 
-    # 4. Return the new, decorated function
     return generate_sars_charts
+
 
 # ----------------------------------------------------------------------
 # 🎯 DEBUGGING BLOCK: Allows tool to be run independently for testing.

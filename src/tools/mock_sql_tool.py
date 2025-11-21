@@ -34,29 +34,15 @@ def create_mock_sars_stats_tool():
         and case counts from the SARS/SRAG database. 
         Returns fixed or semi-fixed values for rapid testing of the agent's logic.
         """
-        logger.info(f"MOCK TOOL: Processing query '{query[:50]}...'")
-        
-        # 1. Check for specific metric keywords in the query
-        query = query.lower()
-        
-        if "mortality rate" in query:
-            result = f"The mortality rate is {SIMULATED_METRICS['mortality_rate']}."
-        elif "icu" in query or "occupancy" in query:
-            result = f"The ICU occupancy count is {SIMULATED_METRICS['icu_occupancy']} patients."
-        elif "vaccination rate" in query:
-            result = f"The vaccination rate is {SIMULATED_METRICS['vaccination_rate']}."
-        elif "increase" in query or "cases" in query or "rate" in query:
-            result = f"The rate of increase is {SIMULATED_METRICS['rate_of_increase']}, with {SIMULATED_METRICS['cases_this_week']} new cases this week."
-        else:
-            # 2. Default: If the query is complex (e.g., "calculate all metrics"), return the full set as JSON
-            result = json.dumps({
-                'mortality_rate': SIMULATED_METRICS['mortality_rate'],
-                'icu_occupancy': SIMULATED_METRICS['icu_occupancy'],
-                'vaccination_rate': SIMULATED_METRICS['vaccination_rate'],
-                'rate_of_increase': SIMULATED_METRICS['rate_of_increase'],
-                'cases_this_week': SIMULATED_METRICS['cases_this_week']
-            })
-            
+        logger.info(f"MOCK TOOL: Processing query '{query[:50]}...'")        
+        result = json.dumps({
+            'mortality_rate': SIMULATED_METRICS['mortality_rate'],
+            'icu_occupancy': SIMULATED_METRICS['icu_occupancy'],
+            'vaccination_rate': SIMULATED_METRICS['vaccination_rate'],
+            'rate_of_increase': SIMULATED_METRICS['rate_of_increase'],
+            'cases_this_week': SIMULATED_METRICS['cases_this_week']
+        })
+
         logger.info(f"MOCK TOOL: Returning result for '{query[:50]}...': {result[:50]}...")
         return result
 
@@ -71,10 +57,16 @@ if __name__ == "__main__":
     print("\n--- Running MOCK SQL Agent Debug Test ---")
     
     # Test 1: Specific metric lookup (Should return simple string)
-    # test_query_mortality = "What is the current mortality rate?"
-    # print(f"\nQuery 1: {test_query_mortality}")
-    # result_mortality = mock_tool.invoke(test_query_mortality)
-    # print(f"Result 1: {result_mortality}")
+    test_query_mortality = "What is the current mortality rate?"
+    print(f"\nQuery 1: {test_query_mortality}")
+    result_mortality = mock_tool.invoke(test_query_mortality)
+    print(f"Result 1: {result_mortality}")
+    
+    # Test 2: Two specific metric lookup
+    test_query_mortality = "What is the current mortality rate and the icu_occupancy?"
+    print(f"\nQuery 1: {test_query_mortality}")
+    result_mortality = mock_tool.invoke(test_query_mortality)
+    print(f"Result 1: {result_mortality}")
     
     # Test 2: Complex request (Should return JSON string with all metrics)
     test_query_all = "Calculate all available metrics and return them in JSON format."
