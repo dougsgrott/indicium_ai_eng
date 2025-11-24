@@ -12,148 +12,82 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
+def _normalize_sqlite_uri(uri: str) -> str:
+    # Handles sqlite:///absolute/path.db
+    if uri.startswith("sqlite:///"):
+        return uri.replace("sqlite:///", "", 1)
+
+    # Handles sqlite://relative/path.db
+    if uri.startswith("sqlite://"):
+        return uri.replace("sqlite://", "", 1)
+
+    return uri
+
+
 def setup_visualization_tool(db_uri: str, img_dir: str):
-    """
-    Factory function to initialize and configure the visualization tool.
-    This separates configuration logic from the tool's execution logic.
-    """
-    try:
-        os.makedirs(img_dir, exist_ok=True)
-    except OSError as e:
-        logger.critical(f"Failed to create image directory {img_dir}: {e}")
-        raise
+    # Extract file path from URI (remove sqlite:///)
+    db_path = db_uri.replace("sqlite:///", "")
 
-    class SarsChartGenerator:
-        def __init__(self, db_uri: str, img_dir: str):
-            self.db_uri = db_uri
-            self.img_dir = img_dir
+    def _get_data(period: str) -> pd.DataFrame:
+        try:
+            norm_db_path = _normalize_sqlite_uri(db_path)
+            conn = sqlite3.connect(norm_db_path)
+            # SQLite specific: strftime to normalize dates
+            query = "SELECT DT_NOTIFIC FROM srag_records WHERE DT_NOTIFIC IS NOT NULL"
+            df = pd.read_sql_query(query, conn)
+            conn.close()
 
-        def _get_data_for_plot(self, time_period: str) -> pd.DataFrame | None:
-            """
-            Internal helper to query the DB and prepare time-series data.
-            Returns data as a DataFrame ready for Plotly.
-            """
-            try:
-                with sqlite3.connect(self.db_uri) as conn:
-                    query = "SELECT DT_NOTIFIC FROM srag_records"
-                    df = pd.read_sql_query(query, conn)
+            # Convert to datetime
+            df['DT_NOTIFIC'] = pd.to_datetime(df['DT_NOTIFIC'], format='%Y-%m-%d')
+            df = df.dropna()
+            
+            if df.empty: return pd.DataFrame()
+
+            max_date = df['DT_NOTIFIC'].max()
+            
+            if period == 'daily_30d':
+                start_date = max_date - timedelta(days=30)
+                filtered = df[df['DT_NOTIFIC'] >= start_date]
+                # Count by day
+                counts = filtered.groupby('DT_NOTIFIC').size().reset_index(name='Cases')
+            else: # monthly_12m
+                start_date = max_date - timedelta(days=365)
+                filtered = df[df['DT_NOTIFIC'] >= start_date]
+                # Group by Month
+                counts = filtered.groupby(pd.Grouper(key='DT_NOTIFIC', freq='M')).size().reset_index(name='Cases')
                 
-                df['DT_NOTIFIC'] = pd.to_datetime(df['DT_NOTIFIC'], errors='coerce')
-                df = df.dropna(subset=['DT_NOTIFIC'])
+            return counts
+        except Exception as e:
+            logger.error(f"Data fetch error: {e}")
+            return pd.DataFrame()
 
-                if df.empty:
-                    logger.warning("Database query returned no valid date data.")
-                    return pd.DataFrame()
-
-                max_date = df['DT_NOTIFIC'].max()
-                
-                # --- Time Series Aggregation ---
-                if time_period == 'daily_30d':
-                    start_date = max_date - timedelta(days=30)
-                    filtered = df[df['DT_NOTIFIC'] >= start_date]
-                    counts = filtered.groupby('DT_NOTIFIC').size()
-                    
-                    # Create a complete date range and fill missing days with 0
-                    full_range = pd.date_range(start_date, max_date, freq='D')
-                    counts = counts.reindex(full_range, fill_value=0)
-                    
-                    # Convert to DataFrame for Plotly
-                    plot_df = counts.rename('Cases').to_frame().reset_index()
-                    plot_df.columns = ['Date', 'Cases']
-                    return plot_df
-                    
-                elif time_period == 'monthly_12m':
-                    start_date = max_date - timedelta(days=365)
-                    filtered = df[df['DT_NOTIFIC'] >= start_date]
-                    
-                    # Group by Month start (freq='MS')
-                    counts = filtered.groupby(pd.Grouper(key='DT_NOTIFIC', freq='MS')).size()
-                    
-                    plot_df = counts.rename('Cases').to_frame().reset_index()
-                    plot_df.columns = ['Date', 'Cases']
-                    return plot_df
-                else:
-                    raise ValueError(f"Invalid time period: {time_period}")
-
-            except sqlite3.Error as e:
-                logger.error(f"SQLite error during data fetching: {e}")
-                return None
-            except Exception as e:
-                logger.error(f"General error in _get_data_for_plot: {e}")
-                return None
-
-        # 1. Plotly-based Chart Generation
-        def generate_sars_charts(self, chart_type: str) -> str:
-            """
-            Generates required visualization charts and saves them as interactive HTML files.
-            
-            Input `chart_type` must be one of the following:
-            - 'daily_30d': For the daily case count over the last 30 days.
-            - 'monthly_12m': For the monthly case count over the last 12 months.
-            
-            Returns the file path of the generated HTML chart.
-            """
-            chart_config = {
-                'daily_30d': {'title': 'Daily SARS Cases (Last 30 Days)', 'type': 'bar', 'color': '#2E86C1'},
-                'monthly_12m': {'title': 'Monthly SARS Cases (Last 12 Months)', 'type': 'line', 'color': '#C0392B'},
-            }
-            
-            if chart_type not in chart_config:
-                logger.warning(f"Agent requested invalid chart_type: {chart_type}")
-                return f"Error: Invalid chart_type '{chart_type}'. Must be 'daily_30d' or 'monthly_12m'."
-            
-            config = chart_config[chart_type]
-            data_df = self._get_data_for_plot(chart_type)
-
-            if data_df.empty:
-                logger.error(f"Chart generation failed: No data for {config['title']}.")
-                return f"Could not generate chart. Data is missing or failed to load for {config['title']}."
-
-            try:
-                # --- Plotly Visualization Logic ---
-                if config['type'] == 'bar':
-                    fig = px.bar(data_df, x='Date', y='Cases', 
-                                 title=config['title'],
-                                 color_discrete_sequence=[config['color']])
-                elif config['type'] == 'line':
-                    fig = px.line(data_df, x='Date', y='Cases', 
-                                  title=config['title'],
-                                  markers=True,
-                                  color_discrete_sequence=[config['color']])
-
-                fig.update_layout(title_font_size=18, 
-                                  xaxis_title='Date / Month',
-                                  yaxis_title='Case Count')
-                
-                # Save as interactive HTML file
-                filename = os.path.join(self.img_dir, f"{chart_type}.html")
-                fig.write_html(filename, auto_open=False, full_html=False)
-                
-                logger.info(f"Chart successfully saved as HTML: {filename}")
-                return f"Success: Chart saved to {filename}"
-            
-            except Exception as e:
-                logger.exception("Critical error during plotting execution.")
-                return f"Critical error during plotting: {e}"
-
-    # --- Tool Construction ---
-    generator = SarsChartGenerator(db_uri, img_dir)
-
-    @wraps(generator.generate_sars_charts)
     @tool
-    def generate_sars_charts(chart_type: str) -> str:
-        """
-        Generates required visualization charts and saves them as interactive HTML files.
+    def generate_chart(chart_type: str) -> str:
+        """Generates 'daily_30d' or 'monthly_12m' charts."""
+        df = _get_data(chart_type)
+        if df.empty: return "Error: No Data"
         
-        Input `chart_type` must be one of the following:
-        - 'daily_30d': For the daily case count over the last 30 days.
-        - 'monthly_12m': For the monthly case count over the last 12 months.
+        if chart_type == 'daily_30d':
+            title = "Daily Cases (30 Days)"
+            fig = px.bar(df, x='DT_NOTIFIC', y='Cases', title=title)
+        else:
+            title = "Monthly Cases (12 Months)"
+            fig = px.line(df, x='DT_NOTIFIC', y='Cases', title=title, markers=True)
         
-        Returns the file path of the generated HTML chart.
-        """
-        return generator.generate_sars_charts(chart_type)
+        filename = f"{img_dir}/{chart_type}.html"
+        fig.write_html(filename, include_plotlyjs='cdn', full_html=False)
+        return f"Success: Chart saved to {filename}"
 
-    return generate_sars_charts
+    return generate_chart
+
+
+
+
+
+
+
+
+
 
 
 # ----------------------------------------------------------------------

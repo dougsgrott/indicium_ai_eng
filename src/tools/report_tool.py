@@ -37,72 +37,7 @@ def setup_report_tool(template_dir: str, output_dir: str):
             os.makedirs(self.output_dir, exist_ok=True)
             print(f"[Report Tool] Initialized. Reports will be saved to: {self.output_dir}")
 
-        def _render_html(self, data: Dict[str, Any]) -> str:
-            """Loads Jinja template and renders it with the collected data."""
-            try:
-                template = env.get_template('sars_report_template.html')
-                data['current_date'] = datetime.date.today().strftime("%Y-%m-%d")
-                html_output = template.render(**data)
-                return html_output
-            except Exception as e:
-                logger.error(f"Failed to render Jinja template: {e}")
-                raise
-
-        def generate_final_report(self, report_data_json: str) -> str:
-            """
-            Generates the final, structured report by combining metrics, news, and HTML plots.
-            """
-            import json # Local import for json usage
-            
-            print(f"[Report Tool] Processing request... (Input size: {len(report_data_json)} chars)")
-
-            try:
-                # --- STEP 1: PARSE INPUT (CRITICAL EXTERNAL I/O) ---
-                safe_json_string = report_data_json.replace('\\', '/')
-                data_dict = json.loads(safe_json_string) 
-            except json.JSONDecodeError as e:
-                error_msg = f"Report generation failed: JSON Decoding Error. Input malformed. Error: {e}"
-                logger.exception(error_msg)
-                print(f"[Report Tool] ERROR: {error_msg}")
-                data_dict = json.loads(report_data_json)
-                # return error_msg
-            except Exception as e:
-                error_msg = f"Report generation failed: Unexpected error during JSON parsing. Error: {e}"
-                logger.exception(error_msg)
-                return error_msg
-
-            # --- STEP 2: STRUCTURE NORMALIZATION (Internal Logic - No Try/Except Needed) ---
-            
-            # Safely retrieve nested components, defaulting to empty structures
-            commentary_data = data_dict.get('commentary', {})
-            top_level_news = data_dict.get('news', [])
-            
-            final_data = {
-                # Metrics: Safely retrieve metrics or default to empty dict
-                'metrics': data_dict.get('metrics', {}),
-                
-                # Commentary: Build the mandatory top-level structure for Jinja
-                'commentary': {
-                    'summary': commentary_data.get('summary', 'The agent did not provide a synthesis. See snippets below.'),
-                    # Combine news sources from potential locations (top level or nested)
-                    'news_sources': top_level_news or commentary_data.get('news_sources', [])
-                },
-                
-                # Charts & Date
-                'charts': data_dict.get('charts', {}),
-                'current_date': datetime.date.today().strftime("%Y-%m-%d")
-            }
-
-            # --- STEP 3: RENDER HTML (CRITICAL EXTERNAL OPERATION) ---
-            try:
-                html_content = self._render_html(final_data) 
-            except Exception as e:
-                error_msg = f"Report generation failed: Jinja Rendering Error. Error: {e}"
-                logger.exception(error_msg)
-                print(f"[Report Tool] ERROR: {error_msg}")
-                return error_msg
-
-            # --- STEP 4: GENERATE FILENAME AND SAVE (CRITICAL EXTERNAL I/O) ---
+        def _generate_save_report(self, html_content):
             try:
                 timestamp = pd.Timestamp.now().strftime("%Y%m%d_%H%M%S")
                 filename = f"SARS_Report_{timestamp}.html"
@@ -122,6 +57,82 @@ def setup_report_tool(template_dir: str, output_dir: str):
                 logger.exception(error_msg)
                 print(f"[Report Tool] ERROR: {error_msg}")
                 return error_msg
+
+        def _render_html(self, data: Dict[str, Any]) -> str:
+            """Loads Jinja template and renders it with the collected data."""
+            try:
+                template = env.get_template('sars_report_template.html')
+                data['current_date'] = datetime.date.today().strftime("%Y-%m-%d")
+                html_output = template.render(**data)
+                return html_output
+            except Exception as e:
+                logger.error(f"Failed to render Jinja template: {e}")
+                raise
+
+        def _parse_input(self, report_data_json):
+            import json
+            try:
+                safe_json_string = report_data_json.replace('\\', '/')
+                data_dict = json.loads(safe_json_string) 
+            except json.JSONDecodeError as e:
+                error_msg = f"Report generation failed: JSON Decoding Error. Input malformed. Error: {e}"
+                logger.exception(error_msg)
+                print(f"[Report Tool] ERROR: {error_msg}")
+                data_dict = json.loads(report_data_json)
+            except Exception as e:
+                error_msg = f"Report generation failed: Unexpected error during JSON parsing. Error: {e}"
+                logger.exception(error_msg)
+                return error_msg
+            return data_dict
+
+        def _normalize_structure(self, data_dict):
+            # Safely retrieve nested components, defaulting to empty structures
+            commentary_data = data_dict.get('commentary', {})
+            top_level_news = data_dict.get('news', [])
+
+            final_data = {
+                # Metrics: Safely retrieve metrics or default to empty dict
+                'metrics': data_dict.get('metrics', {}),
+
+                # Commentary: Build the mandatory top-level structure for Jinja
+                'commentary': {
+                    'summary': commentary_data.get('summary', 'The agent did not provide a synthesis. See snippets below.'),
+                    # Combine news sources from potential locations (top level or nested)
+                    'news_sources': top_level_news or commentary_data.get('news_sources', [])
+                },
+
+                # Charts & Date
+                'charts': data_dict.get('charts', {}),
+                'current_date': datetime.date.today().strftime("%Y-%m-%d")
+            }
+            return final_data
+
+        def generate_final_report(self, report_data_json: str) -> str:
+            """
+            Generates the final, structured report by combining metrics, news, and HTML plots.
+            """
+            
+            print(f"[Report Tool] Processing request... (Input size: {len(report_data_json)} chars)")
+
+            # --- STEP 1: PARSE INPUT (CRITICAL EXTERNAL I/O) ---
+            data_dict = self._parse_input(report_data_json)
+
+            # --- STEP 2: STRUCTURE NORMALIZATION (Internal Logic - No Try/Except Needed) ---            
+            final_data = self._normalize_structure(data_dict)
+
+            # --- STEP 3: RENDER HTML (CRITICAL EXTERNAL OPERATION) ---
+            try:
+                html_content = self._render_html(final_data) 
+            except Exception as e:
+                error_msg = f"Report generation failed: Jinja Rendering Error. Error: {e}"
+                logger.exception(error_msg)
+                print(f"[Report Tool] ERROR: {error_msg}")
+                return error_msg
+
+            # --- STEP 4: GENERATE FILENAME AND SAVE (CRITICAL EXTERNAL I/O) ---
+            msg = self._generate_save_report(html_content)
+            return msg
+
 
     # --- Tool Construction ---
     generator = ReportGenerator(output_dir)

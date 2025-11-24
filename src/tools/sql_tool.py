@@ -48,9 +48,9 @@ def create_sars_stats_tool(db_uri: str, llm: ChatOpenAI):
         llm (ChatOpenAI): The language model instance
     """
     logger.info(f"Initializing SARS Data Agent... (Connecting to: {db_uri})")
-    
+
     try:
-        db = SQLDatabase.from_uri(db_uri)
+        db = SQLDatabase.from_uri(db_uri) # , engine_args={"connect_args": {"check_same_thread": False}} # Fail - Delete later
     except Exception as e:
         logger.critical(f"Failed to connect to database at {db_uri}: {e}")
         raise # Critical error, stop tool initialization
@@ -74,6 +74,7 @@ def create_sars_stats_tool(db_uri: str, llm: ChatOpenAI):
         try:
             logger.info(f"Executing SQL query command for: {query[:50]}...")
             response = sql_agent_executor.invoke({"input": query})
+            # sql_agent_executor.tools[0].db._engine.dispose() # Fail - Delete later
             return response["output"]
         except Exception as e:
             logger.error(f"Error during SQL Agent execution for query '{query[:50]}...': {e}")
