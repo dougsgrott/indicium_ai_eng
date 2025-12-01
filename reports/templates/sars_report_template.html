@@ -4,17 +4,31 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SARS Outbreak Status Report</title>
+    
+    <!-- CRITICAL: Load Plotly ONCE here -->
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; max-width: 900px; margin: 0 auto; padding: 20px; }
         h1 { color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; }
         h2 { color: #2980b9; margin-top: 30px; }
+        
         .metric { background-color: #f8f9fa; border-left: 5px solid #3498db; padding: 15px; margin-bottom: 20px; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; }
         .metric p { margin: 5px 0; }
-        .chart-container { margin-top: 30px; padding: 15px; border: 1px solid #ddd; border-radius: 5px; background-color: #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
         
-        /* Ensures injected plots don't break layout */
-        .plot-content { width: 100%; overflow-x: auto; }
-        .plot-content > div { margin: 0 auto; } 
+        /* UPDATED LAYOUT: Vertical Stack (Rows) instead of Columns */
+        .chart-container { 
+            width: 100%; 
+            margin-bottom: 30px; /* Space between rows */
+            padding: 15px; 
+            border: 1px solid #ddd; 
+            border-radius: 5px; 
+            background-color: #fff; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            box-sizing: border-box; /* Ensures padding doesn't overflow width */
+        }
+        
+        .plot-content { width: 100%; }
         
         ul { background-color: #f9f9f9; padding: 20px 20px 20px 40px; border-radius: 5px; }
         li { margin-bottom: 10px; }
@@ -27,61 +41,63 @@
     <h2>Key Statistical Metrics</h2>
     <div class="metric">
         <div>
-            <p><strong>Rate of Increase (7 Days):</strong></p>
-            <p>{{ metrics.rate_of_increase | default('N/A') }}</p>
+            <p><strong>Rate of Increase (30 Days):</strong></p>
+            <p>{{ metrics.increase_rate | default('N/A') }}%</p>
         </div>
         <div>
             <p><strong>Mortality Rate:</strong></p>
-            <p>{{ metrics.mortality_rate | default('N/A') }}</p>
+            <p>{{ metrics.mortality_rate | default('N/A') }}%</p>
         </div>
         <div>
-            <p><strong>ICU Occupancy (Cases):</strong></p>
-            <p>{{ metrics.icu_occupancy | default('N/A') }}</p>
+            <p><strong>ICU Occupancy:</strong></p>
+            <p>{{ metrics.icu_rate | default('N/A') }}%</p>
         </div>
         <div>
-            <p><strong>Vaccination Rate (Cases):</strong></p>
-            <p>{{ metrics.vaccination_rate | default('N/A') }}</p>
+            <p><strong>Vaccination Rate:</strong></p>
+            <p>{{ metrics.vaccination_rate | default('N/A') }}%</p>
         </div>
     </div>
 
     <h2>Scenario Context & Commentary</h2>
-    <p><strong>Agent Synthesis:</strong> {{ commentary.summary | default('No synthesis provided.') }}</p>
+    <div class="synthesis">
+        {{ commentary.summary | safe }}
+    </div>
 
     <h3>Supporting News Snippets:</h3>
     <ul>
         {% for source in commentary.news_sources %}
         <li>
-            <p><strong>{{ source.title | default('N/A') }}</strong></p>
-            <p>URL: <a href="{{ source.url | default('#') }}">{{ source.url | default('N/A') }}</a></p>
-            <p>Content: {{ source.content | default('N/A') }}</p>
+            <p><strong><a href="{{ source.url | default('#') }}">{{ source.title | default('N/A') }}</a></strong></p>
+            <p>{{ source.content | default('N/A') }}</p>
         </li>
         {% else %}
         <li>No news snippets available.</li> 
         {% endfor %}
     </ul>
 
-    <!-- Chart Section: Renders raw HTML strings passed from the agent -->
+    <!-- Charts Section: Two Rows -->
+    <h2>Case Trend Visualizations</h2>
+    
+    <!-- ROW 1: Daily Cases -->
     <div class="chart-container">
-        <h2>Case Trend Visualizations</h2>
-        
-        <h3>Daily Case Count (Last 30 Days)</h3>
+        <h3>Casos Diários (Últimos 30 Dias)</h3>
         <div class="plot-content">
             {% if charts and charts.daily_30d_html %}
-                <!-- The 'safe' filter is CRITICAL here to render the HTML string as actual DOM elements -->
                 {{ charts.daily_30d_html | safe }} 
             {% else %}
-                <p><em>Daily chart not available or data is missing.</em></p>
+                <p><em>Daily chart not available.</em></p>
             {% endif %}
         </div>
     </div>
-    
+        
+    <!-- ROW 2: Monthly Cases -->
     <div class="chart-container">
-        <h3>Monthly Case Count (Last 12 Months)</h3>
+        <h3>Evolução Mensal (Últimos 12 Meses)</h3>
         <div class="plot-content">
             {% if charts and charts.monthly_12m_html %}
                 {{ charts.monthly_12m_html | safe }}
             {% else %}
-                <p><em>Monthly chart not available or data is missing.</em></p>
+                <p><em>Monthly chart not available.</em></p>
             {% endif %}
         </div>
     </div>
