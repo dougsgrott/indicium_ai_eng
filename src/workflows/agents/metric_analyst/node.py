@@ -6,7 +6,7 @@ from langchain_community.utilities import SQLDatabase
 from langchain_community.agent_toolkits import create_sql_agent
 
 from src.nodes.base import BaseNode 
-from src.domain.srag.schema_context import DATA_DICTIONARY_TEXT
+from src.domain.sars.schema_context import DATA_DICTIONARY_TEXT
 
 from .prompts import (
     SYSTEM_PROMPT, 
@@ -63,10 +63,11 @@ class MetricsAnalystNode(BaseNode):
 
     def execute(self, state: dict) -> dict:
         df = state.get('raw_data', pd.DataFrame())
-        
+        key_str = "metrics_state"
+        output = {key_str: {}}
         if df.empty:
             print(f"[{self.name}] Warning: DataFrame is empty.")
-            return {"metrics": {}}
+            return output
 
         # Ensure DT_NOTIFIC is datetime
         df_analysis = df.copy()
@@ -92,7 +93,7 @@ class MetricsAnalystNode(BaseNode):
         # 2. Build Request
         if not state.get("include_metrics", True):
             print(f"[{self.name}] Skipped (Metrics disabled).")
-            return {"metrics": {}}
+            return output
 
         # 3. Setup & Execute Agent
         db = self._create_ephemeral_db(df) 
@@ -124,8 +125,10 @@ class MetricsAnalystNode(BaseNode):
             metrics["total_cases_analyzed"] = len(df)
 
             print(f"[{self.name}] Metrics Calculated: {metrics}")
-            return {"metrics": metrics}
+            output[key_str] = metrics
+            return output
 
         except Exception as e:
             print(f"[{self.name}] Error: {e}")
-            return {"metrics": {"error": str(e)}}
+            output[key_str] = {"error": str(e)}
+            return output

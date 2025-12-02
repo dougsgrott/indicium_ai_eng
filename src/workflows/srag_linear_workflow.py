@@ -20,27 +20,7 @@ from .agents.news_researcher.node import NewsResearcherNode
 from .agents.synthesis_agent.node import SynthesisNode
 from .agents.report_maker.node import ReportMakerNode
 
-# 3. Define the Unified State
-# This must encompass ALL outputs from ALL agents
-class SragState(TypedDict):
-    # Initial Input
-    raw_data: Any
-    include_metrics: bool
-    include_charts: bool
-    include_news: bool
-
-    # Intermediate Artifacts
-    metrics: Dict[str, float]
-    chart_data: Dict[str, Any]
-    charts_html: Dict[str, str]
-    news_snippets: List[Dict]
-    synthesis_result: Dict[str, str]
-    
-    # Final Output
-    final_report_path: str              # Output of Report Maker
-
-    # --- SYNCHRONIZATION MECHANISM ---
-    branches_completed: Annotated[List[str], operator.add]
+from .workflow_states import SragWorkflowState
 
 
 class SragWorkflow:
@@ -77,7 +57,7 @@ class SragWorkflow:
         self.maker_node = ReportMakerNode(self.report_tool)
 
     def _construct_graph(self):
-        workflow = StateGraph(SragState)
+        workflow = StateGraph(SragWorkflowState)
         
         # --- Add Nodes ---
         workflow.add_node("metrics_analyst", self.metrics_node.execute)

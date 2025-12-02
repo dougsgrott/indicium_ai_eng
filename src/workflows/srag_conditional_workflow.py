@@ -20,34 +20,10 @@ from .agents.news_researcher.node import NewsResearcherNode
 from .agents.synthesis_agent.node import SynthesisNode
 from .agents.report_maker.node import ReportMakerNode
 
-# 3. Define the Unified State
-# This must encompass ALL outputs from ALL agents
-class SragState(TypedDict):
-    # Initial Input
-    user_prompt: str
-    raw_data: Any
-
-    # Flags
-    include_metrics: bool
-    include_charts: bool
-    include_news: bool
-
-    # Intermediate Artifacts
-    metrics: Dict[str, float]           # Output of Metrics Analyst
-    chart_data: Dict[str, Any]          # Output of Chart Calculator
-    charts_html: Dict[str, str]         # Output of Chart Designer
-    news_snippets: List[Dict]           # Output of News Researcher
-    synthesis_result: Dict[str, str]    # Output of Synthesis Agent
-    
-    # Final Output
-    final_report_path: str              # Output of Report Maker
-
-    # Synchronization
-    branches_completed: Annotated[List[str], operator.add]
-    expected_count: int
+from .workflow_states import SragWorkflowState
 
 # --- Routing Logic for Parallel Execution ---
-def route_based_on_intent(state: SragState) -> List[str]:
+def route_based_on_intent(state: SragWorkflowState) -> List[str]:
     """
     Determines which branches to run in parallel based on intent.
     Returns a list of node names to execute simultaneously.
@@ -69,7 +45,7 @@ def route_based_on_intent(state: SragState) -> List[str]:
     return next_nodes
 
 
-def barrier_check(state: SragState) -> str:
+def barrier_check(state: SragWorkflowState) -> str:
     """
     The Gatekeeper: Checks if all 3 parallel branches have reported in.
     """
@@ -140,7 +116,7 @@ class SragWorkflow:
             print(f"[Dispatcher] Preparing for {count} parallel tasks.")
             return {"expected_count": count}
 
-        workflow = StateGraph(SragState)
+        workflow = StateGraph(SragWorkflowState)
         
         # --- Add Nodes ---
         # workflow.add_node("intent", self.intent_node.execute)

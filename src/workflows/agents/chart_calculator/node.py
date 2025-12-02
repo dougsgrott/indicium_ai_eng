@@ -1,3 +1,5 @@
+# src/workflows/agents/chart_calculator/node.py
+
 import json
 import re
 import pandas as pd
@@ -6,13 +8,14 @@ from langchain_community.utilities import SQLDatabase
 from langchain_community.agent_toolkits import create_sql_agent
 
 from src.nodes.base import BaseNode
+from .states import ChartCalculatorState
 from .prompts import (
     SYSTEM_PROMPT, 
     CHART_CALCULATION_PROMPT, 
     REQUEST_CHARTS, 
     REFERENCE_DATE_CONTEXT,
 )
-from src.domain.srag.schema_context import DATA_DICTIONARY_TEXT
+from src.domain.sars.schema_context import DATA_DICTIONARY_TEXT
 
 class ChartCalculatorNode(BaseNode):
     def __init__(self, llm):
@@ -96,11 +99,13 @@ class ChartCalculatorNode(BaseNode):
 
     def execute(self, state: dict) -> dict:
         df = state.get('raw_data', pd.DataFrame())
-        if df.empty: return {"chart_data": {}}
+        key_str = "chart_calc_state"
+        output = {key_str: {}}
+        if df.empty: return output
 
         # Check if charts are requested
         if not state.get("include_charts", True):
-            return {"chart_data": {}}
+            return output
 
         # Date Prep
         df_analysis = df.copy()
@@ -143,8 +148,10 @@ class ChartCalculatorNode(BaseNode):
             }
             
             print(f"[{self.name}] Charts Data Ready.")
-            return {"chart_data": processed_data}
+            output[key_str]["chart_data"] = processed_data
+            return output
 
         except Exception as e:
             print(f"[{self.name}] Error: {e}")
-            return {"chart_data": {"error": str(e)}}
+            output[key_str]["chart_data"] = {"error": str(e)}
+            return output

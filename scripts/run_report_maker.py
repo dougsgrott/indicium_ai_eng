@@ -67,3 +67,5 @@ if __name__ == "__main__":
     # user_prompt = "Create a report with only metrics and charts"
     # user_prompt = "Create a report with only news"
     main(user_prompt)
+
+    # main()

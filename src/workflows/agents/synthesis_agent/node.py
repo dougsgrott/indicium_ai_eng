@@ -17,7 +17,7 @@ class SynthesisNode(BaseNode):
 
     def _format_chart_summary(self, chart_data: dict) -> str:
         # Provide the LLM with a text summary of the visual data so it can analyze the trend
-        daily = chart_data.get('daily_cases_30d', [])
+        daily = chart_data['chart_data'].get('daily_cases_30d', [])
         if not daily: return "No trend data."
         
         start = daily[0]['count']
@@ -27,11 +27,12 @@ class SynthesisNode(BaseNode):
 
     def execute(self, state: dict) -> dict:
         print(f"[{self.name}] Synthesizing Insights...")
-        
+        output = {"synthesis_state": {}}
+
         # 1. Prepare Inputs
-        metrics_str = self._format_metrics(state.get('metrics', {}))
+        metrics_str = self._format_metrics(state.get('metrics_state', {}))
         news_str = self._format_news(state.get('news_snippets', []))
-        chart_str = self._format_chart_summary(state.get('chart_data', {}))
+        chart_str = self._format_chart_summary(state.get('chart_calc_state', {}))
 
         # 2. Build Prompt
         user_prompt = ANALYSIS_PROMPT.format(
@@ -56,16 +57,17 @@ class SynthesisNode(BaseNode):
                     "deep_dive": raw_response,
                     "risk_assessment": "Unknown"
                 }
-
+            output["synthesis_state"] = {"synthesis_result": synthesis_result}
             print(f"[{self.name}] Analysis Complete.")
-            return {"synthesis_result": synthesis_result}
+            return output
 
         except Exception as e:
             print(f"[{self.name}] Error: {e}")
-            return {
+            output["synthesis_state"] = {
                 "synthesis_result": {
                     "executive_summary": "Error during synthesis.",
                     "deep_dive": str(e),
                     "risk_assessment": "Error"
                 }
             }
+            return output

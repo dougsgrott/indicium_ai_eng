@@ -12,9 +12,6 @@ class NewsResearcherNode(BaseNode):
         self.search_tool = create_search_tool()
 
     def execute(self, state: dict) -> dict:
-        # Note: We intentionally DO NOT fetch 'metrics' from state here.
-        # The search is based on the general domain context, not specific numbers.
-        
         # 1. Generate Targeted Search Query
         # We ask the LLM to formulate the best query for "current situation"
         try:
@@ -24,7 +21,8 @@ class NewsResearcherNode(BaseNode):
             search_query = "SRAG Brasil surto casos recentes vacinação"
 
         print(f"[{self.name}] Executing Search for: '{search_query}'")
-
+        output = {"news_state": {}}
+        
         # 2. Execute Search (Tool Step)
         try:
             raw_output = self.search_tool.invoke(search_query)
@@ -53,11 +51,8 @@ class NewsResearcherNode(BaseNode):
         print(f"[{self.name}] Retrieved {len(news_list)} snippets.")
         
         # 4. Update State
-        # We return ONLY the snippets. 
-        # We do not perform synthesis/analysis here (Metrics are unknown).
-        # The 'ReportWriter' or a downstream agent will handle the correlation.
-        return {
+        output["news_state"] = {
             "news_snippets": news_list,
-            # We provide a raw dump for legacy compatibility if something expects 'news_analysis' string
-            "news_analysis": json.dumps(news_list, indent=2) 
+            "news_analysis": json.dumps(news_list, indent=2)
         }
+        return output

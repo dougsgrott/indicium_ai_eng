@@ -37,10 +37,10 @@ class ReportMakerNode(BaseNode):
         print(f"[{self.name}] Assembling Report Data...")
         
         # 1. Retrieve Data
-        metrics = state.get("metrics", {})
-        charts = state.get("charts_html", {})
-        news = state.get("news_snippets", [])
-        synthesis = state.get("synthesis_result", {})
+        metrics = state.get("metrics_state", {})
+        charts = state['chart_plot_state'].get("charts_html", {})
+        news = state.get("news_state", {}).get("news_snippets", [])
+        synthesis = state.get("synthesis_state", {}).get("synthesis_result", {})
 
         # 2. Adapt Synthesis to Report Schema
         # The Jinja template expects 'commentary.summary' and 'commentary.news_sources'

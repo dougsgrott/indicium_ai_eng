@@ -20,38 +20,18 @@ from .agents.news_researcher.node import NewsResearcherNode
 from .agents.synthesis_agent.node import SynthesisNode
 from .agents.report_maker.node import ReportMakerNode
 
-# 3. Define the Unified State
-# This must encompass ALL outputs from ALL agents
-class SragState(TypedDict):
-    # Initial Input
-    raw_data: Any
-    include_metrics: bool
-    include_charts: bool
-    include_news: bool
-
-    # Intermediate Artifacts
-    metrics: Dict[str, float]
-    chart_data: Dict[str, Any]
-    charts_html: Dict[str, str]
-    news_snippets: List[Dict]
-    synthesis_result: Dict[str, str]
-    
-    # Final Output
-    final_report_path: str
-
-    # --- SYNCHRONIZATION MECHANISM ---
-    branches_completed: Annotated[List[str], operator.add]
+from .workflow_states import SragWorkflowState
 
 
 # --- Hardcoded Routing Logic ---
-def route_to_all_workers(state: SragState) -> List[str]:
+def route_to_all_workers(state: SragWorkflowState) -> List[str]:
     """
     Unconditionally returns the list of all parallel starting nodes.
     """
     return ["metrics_analyst", "chart_calculator", "news_researcher"]
 
 
-def barrier_check(state: SragState) -> str:
+def barrier_check(state: SragWorkflowState) -> str:
     """
     The Gatekeeper: Checks if all 3 parallel branches have reported in.
     """
@@ -61,9 +41,6 @@ def barrier_check(state: SragState) -> str:
     if len(set(completed)) >= 3:
         return "synthesis_agent"
     return END
-
-# --- Marker Nodes (Lightweight State Updaters) ---
-# These run at the end of each branch to signal completion.
 
 def mark_metrics_done(state):
     return {"branches_completed": ["metrics"]}
@@ -113,7 +90,7 @@ class SragWorkflow:
             print("[Dispatcher] Starting parallel execution of all branches.")
             return state
 
-        workflow = StateGraph(SragState)
+        workflow = StateGraph(SragWorkflowState)
         
         # --- Add Nodes ---
         # workflow.add_node("intent", self.intent_node.execute)
@@ -196,8 +173,9 @@ class SragWorkflow:
             "include_charts": True,
             "include_news": True,
             "metrics": {},
-            "chart_data": {},
-            "charts_html": {},
+            # "chart_data": {},
+            # "charts_html": {},
+            "chart_state": {},
             "news_snippets": [],
             "synthesis_result": {},
             "branches_completed": []

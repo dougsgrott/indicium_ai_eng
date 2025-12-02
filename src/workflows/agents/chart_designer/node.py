@@ -44,7 +44,9 @@ class ChartDesignerNode(BaseNode):
             return f"<!-- Error generating chart: {e} -->"
 
     def execute(self, state: dict) -> dict:
-        chart_data = state.get("chart_data", {})
+        chart_data = state['chart_calc_state'].get("chart_data", {})
+        key_str = "chart_plot_state"
+        output = {key_str: {}}
         charts_html = {}
         
         print(f"[{self.name}] Generating Visualizations via LLM...")
@@ -66,4 +68,7 @@ class ChartDesignerNode(BaseNode):
         )
 
         print(f"[{self.name}] Charts Generated.")
-        return {"charts_html": charts_html}
+        output[key_str]["charts_html"] = charts_html
+        return output
+        # return {key_str: {"charts_html": charts_html}}
+        # return {"charts_html": charts_html}

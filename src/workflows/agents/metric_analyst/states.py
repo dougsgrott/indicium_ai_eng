@@ -3,6 +3,5 @@
 from typing import TypedDict
 import pandas as pd
 
-class MetricState(TypedDict):
-    raw_data: pd.DataFrame
+class Metrics(TypedDict):
     metrics: dict
