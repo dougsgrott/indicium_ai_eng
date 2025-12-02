@@ -103,7 +103,9 @@ def setup_report_tool(template_dir: str, output_dir: str):
 
                 # Charts & Date
                 'charts': data_dict.get('charts', {}),
-                'current_date': datetime.date.today().strftime("%Y-%m-%d")
+                'current_date': datetime.date.today().strftime("%Y-%m-%d"),
+
+                'audit': data_dict.get('audit', {})
             }
             return final_data
 

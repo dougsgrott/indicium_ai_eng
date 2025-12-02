@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SARS Outbreak Status Report</title>
     
-    <!-- CRITICAL: Load Plotly ONCE here -->
     <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
 
     <style>
@@ -32,6 +31,43 @@
         
         ul { background-color: #f9f9f9; padding: 20px 20px 20px 40px; border-radius: 5px; }
         li { margin-bottom: 10px; }
+
+        /* --- NEW: AUDIT & GOVERNANCE STYLES --- */
+        .audit-container {
+            margin-top: 60px;
+            padding: 20px;
+            background-color: #f1f2f6;
+            border: 1px solid #dfe4ea;
+            border-radius: 8px;
+            font-size: 0.9em;
+            color: #57606f;
+        }
+        .audit-header {
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            border-bottom: 1px solid #ced6e0;
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+            color: #2f3542;
+        }
+        .audit-table { width: 100%; border-collapse: collapse; }
+        .audit-table td { padding: 6px 0; vertical-align: top; }
+        .audit-label { width: 180px; font-weight: 600; }
+        .audit-val { font-family: 'Consolas', 'Monaco', monospace; }
+        
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.85em;
+            font-weight: bold;
+            color: white;
+        }
+        .badge-success { background-color: #2ed573; }
+        .badge-warning { background-color: #ffa502; }
+        .badge-error { background-color: #ff4757; }
+        .badge-neutral { background-color: #a4b0be; }
     </style>
 </head>
 <body>
@@ -75,10 +111,8 @@
         {% endfor %}
     </ul>
 
-    <!-- Charts Section: Two Rows -->
     <h2>Case Trend Visualizations</h2>
     
-    <!-- ROW 1: Daily Cases -->
     <div class="chart-container">
         <h3>Casos Diários (Últimos 30 Dias)</h3>
         <div class="plot-content">
@@ -90,7 +124,6 @@
         </div>
     </div>
         
-    <!-- ROW 2: Monthly Cases -->
     <div class="chart-container">
         <h3>Evolução Mensal (Últimos 12 Meses)</h3>
         <div class="plot-content">
@@ -100,6 +133,48 @@
                 <p><em>Monthly chart not available.</em></p>
             {% endif %}
         </div>
+    </div>
+
+    <div class="audit-container">
+        <div class="audit-header">🛡️ Auditing & Governance</div>
+        <table class="audit-table">
+            <tr>
+                <td class="audit-label">Generation Timestamp:</td>
+                <td class="audit-val">{{ current_date }} (UTC)</td>
+            </tr>
+            <tr>
+                <td class="audit-label">User Prompt:</td>
+                <td class="audit-val">"{{ audit.user_prompt | default('System Triggered') }}"</td>
+            </tr>
+            <tr>
+                <td class="audit-label">Guardrail Status:</td>
+                <td>
+                    {% if audit.is_off_topic %}
+                        <span class="badge badge-error">TRIGGERED</span>
+                        <span style="font-size: 0.85em; margin-left: 10px;">(Standard report generated as fallback)</span>
+                    {% else %}
+                        <span class="badge badge-success">PASSED</span>
+                    {% endif %}
+                </td>
+            </tr>
+            <tr>
+                <td class="audit-label">Execution Path:</td>
+                <td class="audit-val">
+                    {% for tool in audit.tool_usage %}
+                        <div>
+                            {% if tool.status == 'executed' %}
+                                <span style="color: #2ed573;">✔</span> {{ tool.name }}
+                            {% else %}
+                                <span style="color: #a4b0be;">✖</span> <span style="color: #a4b0be; text-decoration: line-through;">{{ tool.name }}</span>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                </td>
+            </tr>
+        </table>
+        <p style="margin-top: 15px; font-size: 0.8em; text-align: center;">
+            Trace ID: {{ audit.trace_id | default('N/A') }} | Engine: Indicium SARS-Lens v1.0
+        </p>
     </div>
 
 </body>

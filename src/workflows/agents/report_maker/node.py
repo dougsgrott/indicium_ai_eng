@@ -1,4 +1,5 @@
 import json
+import uuid
 from src.nodes.base import BaseNode
 
 class ReportMakerNode(BaseNode):
@@ -33,6 +34,33 @@ class ReportMakerNode(BaseNode):
             
         return "".join(parts)
 
+    def _generate_audit_data(self, state: dict) -> dict:
+        """
+        Creates a structured dictionary for the template's Audit section.
+        """
+        # 1. Determine Tool Usage
+        tools = [
+            {"name": "Metrics Analyst", "key": "include_metrics"},
+            {"name": "Chart Calculator", "key": "include_charts"},
+            {"name": "News Researcher", "key": "include_news"},
+        ]
+        
+        tool_usage = []
+        for tool in tools:
+            was_included = state.get(tool["key"], False)
+            tool_usage.append({
+                "name": tool["name"],
+                "status": "executed" if was_included else "skipped"
+            })
+
+        # 2. Build Object
+        return {
+            "user_prompt": state.get("user_prompt", "N/A"),
+            "is_off_topic": state.get("is_off_topic", False),
+            "tool_usage": tool_usage,
+            "trace_id": uuid.uuid4().hex[:8] # Unique ID for this run
+        }
+
     def execute(self, state: dict) -> dict:
         print(f"[{self.name}] Assembling Report Data...")
         
@@ -49,18 +77,12 @@ class ReportMakerNode(BaseNode):
         formatted_summary = self._format_commentary(synthesis)
 
         if is_off_topic:
-            user_prompt = state.get("user_prompt", "Unknown Prompt")
-            disclaimer_html = (
-                f"<div style='background-color: #fff3cd; color: #856404; "
-                f"padding: 15px; border: 1px solid #ffeeba; border-radius: 5px; margin-bottom: 20px;'>"
-                f"<strong>⚠️ System Notice:</strong> The requested topic <em>'{user_prompt}'</em> "
-                f"was detected as unrelated to the SARS/Epidemiological domain. "
-                f"A standard situation report has been generated below for your reference."
-                f"</div><hr>"
-            )
-            # Prepend to the existing summary
-            formatted_summary = disclaimer_html + formatted_summary
+            user_prompt = state.get("user_prompt", "Unknown")
+            disclaimer = f"<div style='background:#fff3cd; padding:10px; border:1px solid #ffeeba;'><strong>⚠️ Notice:</strong> Prompt '{user_prompt}' was off-topic. Standard report generated.</div><br>"
+            formatted_summary = disclaimer + formatted_summary
         
+        audit_data = self._generate_audit_data(state)
+
         # 3. Construct Payload for Tool
         report_payload = {
             "metrics": metrics,
@@ -68,7 +90,8 @@ class ReportMakerNode(BaseNode):
             "commentary": {
                 "summary": formatted_summary,
                 "news_sources": news
-            }
+            },
+            "audit": audit_data  # <--- Passing the data to the tool
         }
 
         # 4. Invoke Tool
