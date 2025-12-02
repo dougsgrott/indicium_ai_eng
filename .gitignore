@@ -140,6 +140,7 @@ sandbox
 static
 generated/
 images/
+ignore/
 
 uv.lock
 *.db

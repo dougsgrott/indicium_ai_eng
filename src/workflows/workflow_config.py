@@ -2,9 +2,8 @@
 
 from pydantic import BaseModel, Field, SecretStr
 
-class MetricConfig(BaseModel):
+class Config(BaseModel):
     """
-    Configuration object for the Metric Analyst Workflow.
     Centralizes all environment and path settings required for execution.
     """
     # LLM Settings

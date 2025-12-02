@@ -8,6 +8,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
 ]
+
 dependencies = [
     "ipykernel>=7.1.0",
     "jupyter>=1.1.1",
@@ -36,4 +37,10 @@ dependencies = [
     "unstructured[pdf]",
     "plotly",
     "duckduckgo-search",
+]
+
+
+[tool.uv.workspace]
+members = [
+    "indicium_ai_eng",
 ]

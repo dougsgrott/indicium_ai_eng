@@ -170,6 +170,3 @@ To assist your implementation, here are the logic definitions you should code in
 
 -----
 
-### 5\. Immediate Next Step
-
-Would you like me to generate the **ETL Python script** to clean the DATASUS columns and prepare the `duckdb` database, or would you prefer I write the **System Prompt** for the Orchestrator Agent?
