@@ -12,6 +12,17 @@ class NewsResearcherNode(BaseNode):
         self.search_tool = create_search_tool()
 
     def execute(self, state: dict) -> dict:
+        output = {"news_state": {}}
+
+        # --- SAFEGUARD: SHORT CIRCUIT ---
+        if state.get("is_off_topic", False):
+            print(f"[{self.name}] 🛡️ Safeguard triggered: Off-topic prompt. Skipping Search.")
+            output["news_state"] = {
+                "news_snippets": [],
+                "news_analysis": "Skipped due to off-topic request."
+            }
+            return output
+
         # 1. Generate Targeted Search Query
         # We ask the LLM to formulate the best query for "current situation"
         try:
@@ -21,7 +32,6 @@ class NewsResearcherNode(BaseNode):
             search_query = "SRAG Brasil surto casos recentes vacinação"
 
         print(f"[{self.name}] Executing Search for: '{search_query}'")
-        output = {"news_state": {}}
         
         # 2. Execute Search (Tool Step)
         try:

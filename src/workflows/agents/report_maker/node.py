@@ -42,9 +42,24 @@ class ReportMakerNode(BaseNode):
         news = state.get("news_state", {}).get("news_snippets", [])
         synthesis = state.get("synthesis_state", {}).get("synthesis_result", {})
 
+        is_off_topic = state.get("is_off_topic", False)
+
         # 2. Adapt Synthesis to Report Schema
         # The Jinja template expects 'commentary.summary' and 'commentary.news_sources'
         formatted_summary = self._format_commentary(synthesis)
+
+        if is_off_topic:
+            user_prompt = state.get("user_prompt", "Unknown Prompt")
+            disclaimer_html = (
+                f"<div style='background-color: #fff3cd; color: #856404; "
+                f"padding: 15px; border: 1px solid #ffeeba; border-radius: 5px; margin-bottom: 20px;'>"
+                f"<strong>⚠️ System Notice:</strong> The requested topic <em>'{user_prompt}'</em> "
+                f"was detected as unrelated to the SARS/Epidemiological domain. "
+                f"A standard situation report has been generated below for your reference."
+                f"</div><hr>"
+            )
+            # Prepend to the existing summary
+            formatted_summary = disclaimer_html + formatted_summary
         
         # 3. Construct Payload for Tool
         report_payload = {

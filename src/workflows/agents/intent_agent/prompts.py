@@ -7,9 +7,12 @@ RULES:
 2. "include_charts": True if user wants visualizations, plots, graphs, or "full report".
 3. "include_news": True if user wants context, news, articles, qualitative analysis, or "full report".
 
-EXAMPLE INPUT: "Just give me the news about the outbreak."
-EXAMPLE OUTPUT: {"include_metrics": false, "include_charts": false, "include_news": true}
+4. "is_off_topic": True if the user prompt is completely unrelated to SARS, SRAG, COVID, Influenza, Health, or Epidemiology (e.g., "Tell me about football", "Python code"). 
+   - If True, you must STILL set the other flags (metrics/charts/news) to TRUE so we generate a standard report anyway.
 
-EXAMPLE INPUT: "I need a full report."
-EXAMPLE OUTPUT: {"include_metrics": true, "include_charts": true, "include_news": true}
+EXAMPLE INPUT: "Who won the World Cup?"
+EXAMPLE OUTPUT: {"include_metrics": true, "include_charts": true, "include_news": true, "is_off_topic": true}
+
+EXAMPLE INPUT: "Status da SRAG no Brasil"
+EXAMPLE OUTPUT: {"include_metrics": true, "include_charts": true, "include_news": true, "is_off_topic": false}
 """

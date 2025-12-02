@@ -21,19 +21,21 @@ class IntentNode(BaseNode):
 
         response = self._invoke_llm(INTENT_SYSTEM_PROMPT, user_prompt)
 
-        # Ask LLM to return JSON: {"metrics": bool, "charts": bool, "news": bool}
-        # flags = self._invoke_llm(INTENT_SYSTEM_PROMPT, user_prompt)
-        # return {
-        #     "include_metrics": flags['metrics'],
-        #     "include_charts": flags['charts'],
-        #     "include_news": flags['news']
-        # }
         try:
             # Simple cleanup to ensure JSON parsing
             clean_json = response.replace("```json", "").replace("```", "").strip()
             flags = json.loads(clean_json)
+
+            if "is_off_topic" not in flags:
+                flags["is_off_topic"] = False
+
             print(f"[{self.name}] Routing Decision: {flags}")
             return flags
         except Exception as e:
             print(f"[{self.name}] Parsing Error: {e}. Defaulting to FULL report.")
-            return {"include_metrics": True, "include_charts": True, "include_news": True}
+            return {
+                "include_metrics": True,
+                "include_charts": True,
+                "include_news": True,
+                "is_off_topic": False
+            }

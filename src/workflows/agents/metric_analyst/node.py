@@ -62,9 +62,17 @@ class MetricsAnalystNode(BaseNode):
         return cleaned
 
     def execute(self, state: dict) -> dict:
-        df = state.get('raw_data', pd.DataFrame())
         key_str = "metrics_state"
         output = {key_str: {}}
+
+        # --- SAFEGUARD: SHORT CIRCUIT ---
+        if state.get("is_off_topic", False):
+            print(f"[{self.name}] 🛡️ Safeguard triggered: Off-topic prompt. Skipping SQL.")
+            # Return empty metrics structure so ReportMaker doesn't crash
+            output[key_str] = {"metrics": {}} 
+            return output
+
+        df = state.get('raw_data', pd.DataFrame())
         if df.empty:
             print(f"[{self.name}] Warning: DataFrame is empty.")
             return output

@@ -12,6 +12,7 @@ class SragWorkflowState(TypedDict):
     # Initial Input
     user_prompt: str
     raw_data: Any
+    is_off_topic: bool
 
     include_metrics: bool
     include_charts: bool

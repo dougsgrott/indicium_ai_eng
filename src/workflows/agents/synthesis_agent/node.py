@@ -26,8 +26,21 @@ class SynthesisNode(BaseNode):
         return f"Daily Cases (30d): Started at {start}, Peaked at {peak}, Ended at {end}."
 
     def execute(self, state: dict) -> dict:
-        print(f"[{self.name}] Synthesizing Insights...")
         output = {"synthesis_state": {}}
+
+        # --- SAFEGUARD: SHORT CIRCUIT ---
+        if state.get("is_off_topic", False):
+            print(f"[{self.name}] 🛡️ Safeguard triggered: Off-topic. Returning dummy synthesis.")
+            output["synthesis_state"] = {
+                "synthesis_result": {
+                    "executive_summary": "Analysis skipped due to off-topic request.",
+                    "risk_assessment": "N/A",
+                    "deep_dive": "N/A"
+                }
+            }
+            return output
+
+        print(f"[{self.name}] Synthesizing Insights...")
 
         # 1. Prepare Inputs
         metrics_str = self._format_metrics(state.get('metrics_state', {}))

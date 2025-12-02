@@ -98,9 +98,17 @@ class ChartCalculatorNode(BaseNode):
         return [{"date": d, "count": c} for d, c in date_map.items()]
 
     def execute(self, state: dict) -> dict:
-        df = state.get('raw_data', pd.DataFrame())
         key_str = "chart_calc_state"
         output = {key_str: {}}
+
+        # --- SAFEGUARD: SHORT CIRCUIT ---
+        if state.get("is_off_topic", False):
+            print(f"[{self.name}] 🛡️ Safeguard triggered: Off-topic prompt. Skipping Charts.")
+            # Return empty chart data
+            output[key_str]["chart_data"] = {}
+            return output
+
+        df = state.get('raw_data', pd.DataFrame())
         if df.empty: return output
 
         # Check if charts are requested
