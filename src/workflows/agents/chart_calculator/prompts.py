@@ -5,12 +5,6 @@ You are an expert SQL Data Analyst specialized in Time-Series Data.
 You are analyzing the Brazilian SRAG database to extract data points for visualizations.
 """
 
-DATA_DICTIONARY = """
-**DATA DICTIONARY:**
-1. **DT_NOTIFIC** (Date): Notification date. Format: YYYY-MM-DD.
-   - Group by this column for daily counts.
-"""
-
 REFERENCE_DATE_CONTEXT = """
 **TEMPORAL CONTEXT:**
 - **Reference Date ("Today"):** {reference_date}

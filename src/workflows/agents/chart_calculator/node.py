@@ -11,8 +11,8 @@ from .prompts import (
     CHART_CALCULATION_PROMPT, 
     REQUEST_CHARTS, 
     REFERENCE_DATE_CONTEXT,
-    DATA_DICTIONARY
 )
+from src.domain.srag.schema_context import DATA_DICTIONARY_TEXT
 
 class ChartCalculatorNode(BaseNode):
     def __init__(self, llm):
@@ -128,7 +128,7 @@ class ChartCalculatorNode(BaseNode):
         try:
             print(f"[{self.name}] Calculating Chart Data...")
             prompt = CHART_CALCULATION_PROMPT.format(
-                data_dictionary=DATA_DICTIONARY,
+                data_dictionary=DATA_DICTIONARY_TEXT,
                 reference_context=ref_context,
                 request=REQUEST_CHARTS
             )
