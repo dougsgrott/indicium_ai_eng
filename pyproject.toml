@@ -37,6 +37,8 @@ dependencies = [
     "unstructured[pdf]",
     "plotly",
     "duckduckgo-search",
+    "langsmith",
+    "langfuse[langchain]",
 ]
 
 

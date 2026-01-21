@@ -5,6 +5,7 @@ from typing import TypedDict, Dict, Any, List, Annotated
 from langgraph.graph import StateGraph, END
 from langchain_openai import ChatOpenAI
 import operator
+from langfuse.langchain import CallbackHandler
 
 # 1. Import Configuration & Infrastructure
 from .workflow_config import Config
@@ -21,6 +22,14 @@ from .agents.synthesis_agent.node import SynthesisNode
 from .agents.report_maker.node import ReportMakerNode
 
 from .workflow_states import SragWorkflowState
+
+try:
+    from langfuse.langchain import CallbackHandler
+    LANGFUSE_INSTALLED = True
+except ImportError:
+    LANGFUSE_INSTALLED = False
+    # Define a dummy class to prevent NameError if used in type hinting (optional)
+    CallbackHandler = None
 
 # --- Routing Logic for Parallel Execution ---
 def route_based_on_intent(state: SragWorkflowState) -> List[str]:
@@ -184,6 +193,36 @@ class SragWorkflow:
         workflow.add_edge("report_maker", END)
         return workflow.compile()
 
+    def _get_callbacks(self):
+        """
+        Safely initializes Langfuse only if enabled, configured, and installed.
+        """
+        callbacks = []
+
+        # 1. Check Configuration Flag (Fastest check)
+        if not self.config.langfuse_enabled:
+            return callbacks
+
+        # 2. Check if Library is Installed
+        if not LANGFUSE_INSTALLED:
+            print(f"[{self.name}] ⚠️ Config enabled Langfuse, but 'langfuse' package is not installed.")
+            print(f"[{self.name}]    Run: pip install langfuse")
+            return callbacks
+
+        # 3. Check for Credentials
+        if self.config.LANGFUSE_PUBLIC_KEY and self.config.LANGFUSE_SECRET_KEY:
+            try:
+                print(f"[{self.name}] 🔍 Initializing Langfuse Tracing...")
+                # v3: Automatically reads from os.environ, which settings.py populated
+                handler = CallbackHandler()
+                callbacks.append(handler)
+            except Exception as e:
+                print(f"[{self.name}] ⚠️ Langfuse Init Failed: {e}")
+        else:
+            print(f"[{self.name}] ⚠️ Langfuse enabled but keys missing in .env")
+
+        return callbacks
+
     def load_data(self):
         """Helper to fetch data using the adapter before starting the graph."""
         print(f"[{self.name}] Loading Clinical Data...")
@@ -214,8 +253,13 @@ class SragWorkflow:
         }
         
         # 3. Execute Graph
+        run_config = {}
+        callbacks = self._get_callbacks()
+        if callbacks:
+            run_config["callbacks"] = callbacks
+
         print(f"[{self.name}] Starting Workflow Graph...")
         app = self._construct_graph()
-        result = app.invoke(initial_state)
+        result = app.invoke(initial_state, config=run_config)
         
         return result

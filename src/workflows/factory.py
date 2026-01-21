@@ -30,7 +30,12 @@ class WorkflowFactory:
             openai_api_key=settings.OPENAI_API_KEY,
             db_uri=settings.DB_URI,
             project_root=root_dir,
-            llm_model="gpt-4o"
+            llm_model="gpt-4o",
+
+            langfuse_enabled=settings.LANGFUSE_ENABLED,
+            LANGFUSE_SECRET_KEY=settings.LANGFUSE_SECRET_KEY,
+            LANGFUSE_PUBLIC_KEY=settings.LANGFUSE_PUBLIC_KEY,
+            LANGFUSE_HOST=settings.LANGFUSE_HOST
         )
 
     @staticmethod

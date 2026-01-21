@@ -1,6 +1,7 @@
 # src/workflows/workflow_config.py
 
 from pydantic import BaseModel, Field, SecretStr
+from typing import Optional
 
 class Config(BaseModel):
     """
@@ -16,6 +17,11 @@ class Config(BaseModel):
     
     # Project Paths (for resolving relative DB paths)
     project_root: str = Field(..., description="Absolute path to project root")
+
+    langfuse_enabled: bool = Field(default=False)
+    LANGFUSE_SECRET_KEY: Optional[str] = None
+    LANGFUSE_PUBLIC_KEY: Optional[str] = None
+    LANGFUSE_HOST: str = "http://localhost:3000"
 
     class Config:
         arbitrary_types_allowed = True

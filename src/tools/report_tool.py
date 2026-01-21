@@ -72,8 +72,9 @@ def setup_report_tool(template_dir: str, output_dir: str):
         def _parse_input(self, report_data_json):
             import json
             try:
-                safe_json_string = report_data_json.replace('\\', '/')
-                data_dict = json.loads(safe_json_string) 
+                # safe_json_string = report_data_json.replace('\\', '/')
+                # data_dict = json.loads(safe_json_string) 
+                data_dict = json.loads(report_data_json)
             except json.JSONDecodeError as e:
                 error_msg = f"Report generation failed: JSON Decoding Error. Input malformed. Error: {e}"
                 logger.exception(error_msg)
