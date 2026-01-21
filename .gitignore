@@ -133,7 +133,6 @@ dmypy.json
 
 .deepeval
 Indicium
-data
 rag-from-scratch-main
 reports/generated_reports
 sandbox
@@ -143,4 +142,3 @@ images/
 ignore/
 
 uv.lock
-*.db
